@@ -17,15 +17,22 @@ class Makeup:
         # if args.pattern:
         self.pattern = Segmentor(args)
         self.pattern.test_model(args.checkpoint_pattern)
-        self.color = net.Generator_branch(64, 6).cuda()
-        self.color.load_state_dict(torch.load(args.checkpoint_color))
+        if torch.cuda.is_available():
+            self.color = net.Generator_branch(64, 6).cuda()
+            self.color.load_state_dict(torch.load(args.checkpoint_color))
+        else:
+            self.color = net.Generator_branch(64, 6)
+            self.color.load_state_dict(torch.load(args.checkpoint_color, map_location="cpu"))
         self.color.eval()
         if args.prn:
             self.prn = PRN(is_dlib=True)
 
     def get_mask(self, img):
         x_tensor = to_tensor(img / 255)
-        x_tensor = torch.from_numpy(x_tensor).unsqueeze(0).cuda()
+        if torch.cuda.is_available():
+            x_tensor = torch.from_numpy(x_tensor).unsqueeze(0).cuda()
+        else:
+            x_tensor = torch.from_numpy(x_tensor).unsqueeze(0)
         pr_mask = self.pattern.model.predict(x_tensor)
         pr_mask = pr_mask[0, 0, :, :].detach().cpu().numpy()
         return pr_mask
@@ -42,8 +49,12 @@ class Makeup:
         img_B = transform(Image.fromarray(img_B))
         img_A = img_A[None, :, :, :]
         img_B = img_B[None, :, :, :]
-        real_org = to_var(img_A).cuda()
-        real_ref = to_var(img_B).cuda()
+        if torch.cuda.is_available():
+            real_org = to_var(img_A).cuda()
+            real_ref = to_var(img_B).cuda()
+        else:
+            real_org = to_var(img_A)
+            real_ref = to_var(img_B)
 
         # Get makeup result
         fake_A, fake_B = self.color(real_org, real_ref)
@@ -148,7 +159,7 @@ class Makeup:
         blurred_mask = cv2.GaussianBlur(self.mask_out_eye * 255, (25, 25), 0)
         extend_mask = self.mask_out_eye.copy() * 255
         gray = cv2.cvtColor(extend_mask, cv2.COLOR_BGR2GRAY)
-        contours, hierarchy = cv2.findContours(gray.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # contours, hierarchy = cv2.findContours(gray.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         new_mask = np.where(extend_mask == np.array([255, 255, 255]), blurred_mask, extend_mask)
 
         refer = reference * self.mask_out_eye + source * (1 - self.mask_out_eye)

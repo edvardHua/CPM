@@ -1,6 +1,10 @@
 import segmentation_models_pytorch as smp
 import torch
 
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
 
 class Segmentor:
     def __init__(self, args):
@@ -19,7 +23,10 @@ class Segmentor:
             smp.utils.metrics.Precision(),
             smp.utils.metrics.Recall(),
         ]
-        self.device = args.device
+        if torch.cuda.is_available():
+            self.device = args.device
+        else:
+            self.device = "cpu"
         # self.optimizer = torch.optim.Adam([
         #     dict(params=self.model.parameters(), lr=0.0001),
         # ])
@@ -42,11 +49,23 @@ class Segmentor:
         #                 )
 
     def test_model(self, path):
-        self.test_model = smp.utils.train.ValidEpoch(
-            torch.load(path),
-            loss=self.loss,
-            metrics=self.metrics,
-            device=self.device,
-            verbose=True,
-        )
-        self.model = torch.load(path)
+
+        if self.device == "cpu":
+            self.test_model = smp.utils.train.ValidEpoch(
+                torch.load(path, map_location="cpu"),
+                loss=self.loss,
+                metrics=self.metrics,
+                # device=self.device,
+                device="cpu",
+                verbose=True,
+            )
+            self.model = torch.load(path, map_location="cpu")
+        else:
+            self.test_model = smp.utils.train.ValidEpoch(
+                torch.load(path),
+                loss=self.loss,
+                metrics=self.metrics,
+                device=self.device,
+                verbose=True,
+            )
+            self.model = torch.load(path)
