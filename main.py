@@ -29,6 +29,12 @@ if __name__ == "__main__":
 
     imgA = np.array(Image.open(args.input))
     imgB = np.array(Image.open(args.style))
+
+    base_name_a = os.path.basename(args.input)
+    base_name_b = os.path.basename(args.style)
+    base_name_a = base_name_a[:base_name_a.rindex(".")]
+    base_name_b = base_name_b[:base_name_b.rindex(".")]
+
     imgB = cv2.resize(imgB, (256, 256))
 
     model.prn_process(imgA)
@@ -49,7 +55,7 @@ if __name__ == "__main__":
 
     x2, y2, x1, y1 = model.location_to_crop()
     output = np.concatenate([imgB[x2:], model.face[x2:], output[x2:]], axis=1)
-    save_path = os.path.join(args.savedir, "result.png")
+    save_path = os.path.join(args.savedir, "result_%s_%s.png" % (base_name_a, base_name_b))
 
     Image.fromarray((output).astype("uint8")).save(save_path)
     print("Completed 👍 Please check result in: {}".format(save_path))
